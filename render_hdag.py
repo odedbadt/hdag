@@ -111,7 +111,7 @@ def add_cluster(parent, cluster, node_types, depth=0):
 
 
 def render(nodes, edges, cluster, output_path="my_graph"):
-    dot = graphviz.Digraph("GlobalDAG", format="png")
+    dot = graphviz.Digraph("GlobalDAG", format="svg")
     dot.attr(rankdir="LR", fontname="Helvetica", splines="spline",
              nodesep="0.7", ranksep="1.4", bgcolor="white")
     dot.attr("node", fontname="Helvetica", fontsize="12")
@@ -136,7 +136,7 @@ def render(nodes, edges, cluster, output_path="my_graph"):
         dot.edge(src_id, dst_id, label=f"{src_port}→{dst_port}")
 
     dot.render(output_path, cleanup=True)
-    print(f"Rendered → {output_path}.png")
+    print(f"Rendered → {output_path}.svg")
     return dot.source
 
 
