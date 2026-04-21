@@ -1,0 +1,135 @@
+{
+  "types": {
+    "Reader":        { "ports": { "in": ["path"],          "out": ["raw"] } },
+    "Deduper":       { "ports": { "in": ["raw"],           "out": ["unique", "duplicate"] } },
+    "Logger":        { "ports": { "in": ["msg"],           "out": ["done"] } },
+    "TypeCheck":     { "ports": { "in": ["data"],          "out": ["valid", "invalid"] } },
+    "RangeCheck":    { "ports": { "in": ["data"],          "out": ["valid", "invalid"] } },
+    "NullCheck":     { "ports": { "in": ["data"],          "out": ["valid", "invalid"] } },
+    "RuleEngine":    { "ports": { "in": ["data"],          "out": ["valid", "invalid"] } },
+    "LangDetector":  { "ports": { "in": ["text"],          "out": ["lang", "confidence"] } },
+    "Translator":    { "ports": { "in": ["text", "lang"],  "out": ["translated"] } },
+    "QualityCheck":  { "ports": { "in": ["text"],          "out": ["score", "approved"] } },
+    "Tokenizer":     { "ports": { "in": ["text"],          "out": ["tokens"] } },
+    "Embedder":      { "ports": { "in": ["tokens"],        "out": ["vectors"] } },
+    "Classifier":    { "ports": { "in": ["vectors"],       "out": ["label", "score"] } },
+    "Extractor":     { "ports": { "in": ["text"],          "out": ["entities"] } },
+    "Summarizer":    { "ports": { "in": ["text"],          "out": ["summary"] } },
+    "Formatter":     { "ports": { "in": ["data", "format"],"out": ["output"] } },
+    "DBWriter":      { "ports": { "in": ["data"],          "out": ["done"] } },
+    "CacheWriter":   { "ports": { "in": ["data"],          "out": ["done"] } },
+    "SearchIndexer": { "ports": { "in": ["data"],          "out": ["done"] } },
+
+    "ValidationLayer": {
+      "ports": { "in": ["data"], "out": ["valid", "invalid"] },
+      "children": {
+        "type_check":  "TypeCheck",
+        "range_check": "RangeCheck",
+        "null_check":  "NullCheck",
+        "rule_engine": "RuleEngine"
+      },
+      "dag": { "edges": [
+        ["SOURCE.data",         "type_check.data"],
+        ["type_check.valid",    "range_check.data"],
+        ["range_check.valid",   "null_check.data"],
+        ["null_check.valid",    "rule_engine.data"],
+        ["type_check.invalid",  "SINK.invalid"],
+        ["range_check.invalid", "SINK.invalid"],
+        ["null_check.invalid",  "SINK.invalid"],
+        ["rule_engine.valid",   "SINK.valid"],
+        ["rule_engine.invalid", "SINK.invalid"]
+      ]}
+    },
+
+    "TranslationUnit": {
+      "ports": { "in": ["text"], "out": ["translated", "confidence", "approved"] },
+      "children": {
+        "detector":   "LangDetector",
+        "translator": "Translator",
+        "quality":    "QualityCheck"
+      },
+      "dag": { "edges": [
+        ["SOURCE.text",           "detector.text"],
+        ["SOURCE.text",           "translator.text"],
+        ["SOURCE.text",           "quality.text"],
+        ["detector.lang",         "translator.lang"],
+        ["translator.translated", "SINK.translated"],
+        ["detector.confidence",   "SINK.confidence"],
+        ["quality.approved",      "SINK.approved"]
+      ]}
+    },
+
+    "NLPProcessor": {
+      "ports": { "in": ["text"], "out": ["label", "score", "entities", "summary"] },
+      "children": {
+        "tokenizer":  "Tokenizer",
+        "embedder":   "Embedder",
+        "classifier": "Classifier",
+        "extractor":  "Extractor",
+        "summarizer": "Summarizer"
+      },
+      "dag": { "edges": [
+        ["SOURCE.text",        "tokenizer.text"],
+        ["SOURCE.text",        "extractor.text"],
+        ["SOURCE.text",        "summarizer.text"],
+        ["tokenizer.tokens",   "embedder.tokens"],
+        ["embedder.vectors",   "classifier.vectors"],
+        ["classifier.label",   "SINK.label"],
+        ["classifier.score",   "SINK.score"],
+        ["extractor.entities", "SINK.entities"],
+        ["summarizer.summary", "SINK.summary"]
+      ]}
+    },
+
+    "OutputRouter": {
+      "ports": { "in": ["data", "format"], "out": ["db_done", "cache_done", "indexed"] },
+      "children": {
+        "formatter": "Formatter",
+        "db":        "DBWriter",
+        "cache":     "CacheWriter",
+        "indexer":   "SearchIndexer"
+      },
+      "dag": { "edges": [
+        ["SOURCE.data",      "formatter.data"],
+        ["SOURCE.format",    "formatter.format"],
+        ["formatter.output", "db.data"],
+        ["formatter.output", "cache.data"],
+        ["formatter.output", "indexer.data"],
+        ["db.done",          "SINK.db_done"],
+        ["cache.done",       "SINK.cache_done"],
+        ["indexer.done",     "SINK.indexed"]
+      ]}
+    },
+
+    "DocumentPipeline": {
+      "ports": { "in": ["path", "format"], "out": ["stored", "cached", "indexed", "quality", "logged"] },
+      "children": {
+        "reader":    "Reader",
+        "deduper":   "Deduper",
+        "validator": "ValidationLayer",
+        "translate": "TranslationUnit",
+        "nlp":       "NLPProcessor",
+        "output":    "OutputRouter",
+        "logger":    "Logger"
+      },
+      "dag": { "edges": [
+        ["SOURCE.path",          "reader.path"],
+        ["SOURCE.format",        "output.format"],
+        ["reader.raw",           "deduper.raw"],
+        ["deduper.unique",       "validator.data"],
+        ["deduper.duplicate",    "logger.msg"],
+        ["validator.valid",      "translate.text"],
+        ["validator.valid",      "nlp.text"],
+        ["validator.invalid",    "logger.msg"],
+        ["translate.translated", "output.data"],
+        ["nlp.label",            "output.data"],
+        ["output.db_done",       "SINK.stored"],
+        ["output.cache_done",    "SINK.cached"],
+        ["output.indexed",       "SINK.indexed"],
+        ["translate.confidence", "SINK.quality"],
+        ["logger.done",          "SINK.logged"]
+      ]}
+    }
+  },
+  "root": "DocumentPipeline"
+}
