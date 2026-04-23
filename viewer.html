@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HDAG Viewer</title>
+  <link rel="stylesheet" href="viewer.css" />
+</head>
+<body>
+  <div id="toolbar">
+    <span id="app-title">HDAG Viewer</span>
+    <label id="file-label" class="btn">
+      Open SVG…
+      <input type="file" id="file-input" accept=".svg" />
+    </label>
+    <button id="btn-reset" class="btn" title="Reset pan/zoom">⟳ Reset</button>
+    <span id="hint">Wheel: pan  ·  Shift+Wheel: pan horizontal  ·  Ctrl+Wheel: zoom</span>
+  </div>
+
+  <div id="svg-container">
+    <div id="empty-state">
+      <p>No SVG loaded.</p>
+      <p>Click <strong>Open SVG…</strong> above to load a Graphviz-rendered HDAG file.</p>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal-overlay" class="hidden">
+    <div id="modal-card">
+      <button id="modal-close" aria-label="Close">✕</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="viewer.js"></script>
+</body>
+</html>
