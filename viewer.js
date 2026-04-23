@@ -27,10 +27,11 @@
     if (!w) return;
     const svgEl = w.querySelector("svg");
     if (!svgEl) return;
-    // fit SVG inside container with some padding
-    const cw = container.clientWidth,  ch = container.clientHeight;
-    const sw = svgEl.width.baseVal.value || svgEl.viewBox.baseVal.width  || cw;
-    const sh = svgEl.height.baseVal.value|| svgEl.viewBox.baseVal.height || ch;
+    const cw = container.clientWidth, ch = container.clientHeight;
+    // Prefer explicit px dimensions we set; fall back to viewBox; fall back to container
+    const vb = svgEl.viewBox.baseVal;
+    const sw = parseFloat(svgEl.getAttribute("width"))  || (vb && vb.width)  || cw;
+    const sh = parseFloat(svgEl.getAttribute("height")) || (vb && vb.height) || ch;
     const pad = 40;
     scale = Math.min((cw - pad) / sw, (ch - pad) / sh, 1);
     tx = (cw - sw * scale) / 2;
@@ -49,6 +50,11 @@
   });
 
   function loadSVG(svgText) {
+    // Strip XML declaration and DOCTYPE — both break innerHTML parsing
+    const cleaned = svgText
+      .replace(/<\?xml[^?]*\?>/i, "")
+      .replace(/<!DOCTYPE[^>]*>/i, "");
+
     // Remove old wrapper
     const old = getWrapper();
     if (old) old.remove();
@@ -57,7 +63,7 @@
     // Create wrapper div to hold the SVG
     const wrapper = document.createElement("div");
     wrapper.id = "svg-wrapper";
-    wrapper.innerHTML = svgText;
+    wrapper.innerHTML = cleaned;
     container.appendChild(wrapper);
 
     // Extract embedded metadata
@@ -67,11 +73,18 @@
       try { hdagMeta = JSON.parse(scriptTag.textContent); } catch(e) { console.warn("hdag-data parse error", e); }
     }
 
-    // Remove inline width/height so SVG flows naturally
+    // Set pixel dimensions from viewBox (Graphviz emits "pt" units which
+    // report 0 via .baseVal.value in some browsers)
     const svgEl = wrapper.querySelector("svg");
     if (svgEl) {
-      svgEl.removeAttribute("width");
-      svgEl.removeAttribute("height");
+      const vb = svgEl.viewBox.baseVal;
+      if (vb && vb.width) {
+        svgEl.setAttribute("width",  vb.width  + "px");
+        svgEl.setAttribute("height", vb.height + "px");
+      } else {
+        svgEl.removeAttribute("width");
+        svgEl.removeAttribute("height");
+      }
     }
 
     resetView();
