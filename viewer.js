@@ -79,6 +79,16 @@
 
   btnReset.addEventListener("click", resetView);
 
+  // Auto-load: check ?svg= param, fall back to my_graph.svg
+  (function autoLoad() {
+    const params = new URLSearchParams(location.search);
+    const svgUrl = params.get("svg") || "my_graph.svg";
+    fetch(svgUrl)
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(text => loadSVG(text))
+      .catch(() => { /* no auto-load, show empty state */ });
+  })();
+
   // ── Wheel: pan + zoom ─────────────────────────────────────────────────────────
 
   container.addEventListener("wheel", e => {
