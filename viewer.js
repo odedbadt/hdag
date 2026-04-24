@@ -106,10 +106,10 @@
 
   container.addEventListener("wheel", e => {
     e.preventDefault();
-    const delta = e.deltaY;
 
     if (e.ctrlKey) {
       // Zoom anchored at mouse
+      const delta = e.deltaY || e.deltaX;
       const rect = container.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
@@ -120,11 +120,16 @@
       ty = my - (my - ty) * f;
       scale = newScale;
     } else if (e.shiftKey) {
-      // Horizontal pan
+      // Horizontal pan — trackpad sends deltaX when shift held, mouse sends deltaY
+      const delta = e.deltaX !== 0 ? e.deltaX : e.deltaY;
       tx -= delta;
     } else {
-      // Vertical pan
-      ty -= delta;
+      // Vertical pan — use deltaY; if trackpad sends deltaX (horizontal swipe) pan horizontally
+      if (Math.abs(e.deltaY) >= Math.abs(e.deltaX)) {
+        ty -= e.deltaY;
+      } else {
+        tx -= e.deltaX;
+      }
     }
     applyTransform();
   }, { passive: false });
