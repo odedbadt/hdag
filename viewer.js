@@ -1,7 +1,7 @@
 (() => {
   // ── State ────────────────────────────────────────────────────────────────────
   let tx = 0, ty = 0, scale = 1;
-  let hdagMeta = null;   // { nodes: {id→type}, types: {...} }
+  let hdagMeta = null;   // { nodes: {id→name}, ports: {id→{in:[...], out:[...]}} }
   let isDragging = false, dragStartX = 0, dragStartY = 0, dragTx = 0, dragTy = 0;
 
   // ── DOM refs ──────────────────────────────────────────────────────────────────
@@ -173,35 +173,26 @@
   });
 
   function showModal(nodeId) {
-    const typeName = hdagMeta?.nodes?.[nodeId];
-    const typeDef  = typeName && hdagMeta?.types?.[typeName];
+    const instanceName = hdagMeta?.nodes?.[nodeId];
+    const portInfo     = hdagMeta?.ports?.[nodeId];
 
     const parts   = nodeId.split(".");
     const display = parts.slice(1).join(".") || nodeId;
     const parent  = parts.length > 2 ? parts.slice(1, -1).join(".") : null;
-    const parentType = parent && hdagMeta?.nodes?.["root." + parent];
 
     const rows = [];
 
     rows.push(["Node ID", `<code>${nodeId}</code>`]);
-    rows.push(["Display", `<strong>${display}</strong>`]);
+    rows.push(["Name",    `<strong>${display}</strong>`]);
 
-    if (typeName) rows.push(["Type", typeName]);
-
-    if (typeDef?.ports?.in?.length) {
-      rows.push(["In ports",  typeDef.ports.in.map(p  => `<span class="port-tag">${p}</span>`).join(" ")]);
+    if (portInfo?.in?.length) {
+      rows.push(["In ports",  portInfo.in.map(p  => `<span class="port-tag">${p}</span>`).join(" ")]);
     }
-    if (typeDef?.ports?.out?.length) {
-      rows.push(["Out ports", typeDef.ports.out.map(p => `<span class="port-tag">${p}</span>`).join(" ")]);
+    if (portInfo?.out?.length) {
+      rows.push(["Out ports", portInfo.out.map(p => `<span class="port-tag">${p}</span>`).join(" ")]);
     }
 
-    if (typeDef?.children) {
-      const childList = Object.entries(typeDef.children)
-        .map(([n, t]) => `<span class="port-tag">${n}: ${t}</span>`).join(" ");
-      rows.push(["Children", childList]);
-    }
-
-    if (parent) rows.push(["Parent", parent + (parentType ? ` [${parentType}]` : "")]);
+    if (parent) rows.push(["Parent", parent]);
 
     const breadcrumb = parts.join(" › ");
     rows.push(["Path", `<small>${breadcrumb}</small>`]);

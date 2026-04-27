@@ -4,137 +4,140 @@ This document formally specifies the JSON format for defining a Hierarchical DAG
 
 ---
 
+## Design principles
+
+- **Identity over type**: every node in the JSON tree is a unique instance. Two nodes with the same name at different tree positions are distinct entities.
+- **Structure mirrors hierarchy**: the JSON nesting directly reflects the parent–child containment, with no separate type dictionary.
+- **Ports inferred**: input and output ports are not declared explicitly; they are derived from edge references.
+- **Self-referential sentinels**: a composite node uses its own name to reference its external boundary in its local DAG.
+
+---
+
 ## Top-level structure
+
+The root of the HDAG is a node whose instance name is always `"root"`. The top-level JSON object **is** the root node definition.
 
 ```json
 {
-  "types": { ... },
-  "root":  "<TypeName>"
+  "children": { ... },
+  "dag":      [ ... ]
 }
 ```
-
-| Field   | Type   | Required | Description |
-|---------|--------|----------|-------------|
-| `types` | object | ✓        | Map of type name → type definition |
-| `root`  | string | ✓        | Name of the root type to expand into the global DAG |
 
 ---
 
-## Type definition
+## Node definition
 
-Every entry in `types` is either a **leaf** or a **composite** type.
+Every node in the hierarchy is either a **leaf** or a **composite**.
 
-### Leaf type
+### Leaf node
 
-A leaf has no children and no local DAG. It is a primitive node in the global DAG.
+A leaf has no children. Its ports are inferred from how it is wired in its parent's `dag`.
 
 ```json
-"TypeName": {
-  "ports": {
-    "in":  ["port_a", "port_b"],
-    "out": ["port_x", "port_y"]
-  }
-}
+"node_name": {}
 ```
 
-| Field        | Type            | Required | Description |
-|--------------|-----------------|----------|-------------|
-| `ports.in`   | array of string | ✓        | Named input ports |
-| `ports.out`  | array of string | ✓        | Named output ports |
+### Composite node
 
-### Composite type
-
-A composite type defines a set of named children and a local DAG over them.
+A composite node declares named children and a local DAG over them.
 
 ```json
-"TypeName": {
-  "ports": {
-    "in":  ["port_a"],
-    "out": ["port_x", "port_y"]
-  },
+"node_name": {
   "children": {
-    "child_name": "ChildTypeName",
-    ...
+    "child_a": { ... },
+    "child_b": { ... }
   },
-  "dag": {
-    "edges": [
-      ["SOURCE.port_a",       "child1.in_port"],
-      ["child1.out_port",     "child2.in_port"],
-      ["child2.out_port",     "SINK.port_x"]
-    ]
-  }
+  "dag": [
+    ["node_name->inputs->port_a",  "child_a->inputs->p"],
+    ["child_a->outputs->q",        "child_b->inputs->r"],
+    ["child_b->outputs->s",        "node_name->outputs->port_x"]
+  ]
 }
 ```
 
-| Field             | Type            | Required | Description |
-|-------------------|-----------------|----------|-------------|
-| `ports`           | object          | ✓        | Same as leaf — the **interface** this composite exposes to its parent |
-| `children`        | object          | ✓        | Map of child instance name → type name |
-| `dag.edges`       | array of pairs  | ✓        | Directed edges in the local DAG (see below) |
+| Field      | Required | Description |
+|------------|----------|-------------|
+| `children` | ✓        | Map of child instance name → node definition |
+| `dag`      | ✓        | Array of directed edges `[source_ref, dest_ref]` |
 
 ---
 
-## Edges
+## Edge syntax
 
-Each edge is a two-element array:
+Each edge is a two-element array `["<source_ref>", "<dest_ref>"]`.
 
-```json
-["<source_ref>", "<dest_ref>"]
+Every reference has the form:
+
+```
+"<node_name>->inputs-><port>"    // feed data into node_name's input port
+"<node_name>->outputs-><port>"   // read data from node_name's output port
 ```
 
-A reference has the form `"<node>.<port>"` where `<node>` is one of:
-
-| Node value  | Meaning |
-|-------------|---------|
-| `SOURCE`    | The composite's own **input** boundary (sentinel) |
-| `SINK`      | The composite's own **output** boundary (sentinel) |
-| `child_name`| A named child declared in `children` |
+| Reference form | Meaning |
+|----------------|---------|
+| `self->inputs->p` | The composite's own **input** boundary (self = the composite's name) |
+| `self->outputs->p`| The composite's own **output** boundary |
+| `child->inputs->q` | Feed into a child's input port |
+| `child->outputs->q`| Read from a child's output port |
 
 ### Edge categories
 
-| Edge form | Meaning |
-|-----------|---------|
-| `SOURCE.p → child.q` | The composite's input port `p` is delivered to child's input port `q`. Defines which leaf nodes receive external input. |
-| `child.p → SINK.q`   | Child's output port `p` becomes the composite's output port `q`. Defines which leaf nodes provide external output. |
-| `childA.p → childB.q`| Internal connection. During welding, the exit points of `childA` via port `p` are directly wired to the entry points of `childB` via port `q`. |
+| Pattern | Semantics |
+|---------|-----------|
+| `self->inputs->p → child->inputs->q` | External input port `p` flows into child's input port `q` |
+| `child->outputs->p → self->outputs->q` | Child's output port `p` becomes the composite's output port `q` |
+| `childA->outputs->p → childB->inputs->q` | Internal weld: childA's exits via port `p` connect directly to childB's entries via port `q` |
 
 ### Fan-out and fan-in
 
-Multiple edges may share the same source reference (fan-out) or the same destination reference (fan-in):
+Multiple edges may share the same source (fan-out) or the same destination (fan-in):
 
 ```json
-["child1.result", "child2.data"],
-["child1.result", "child3.data"],   // fan-out from child1.result
+["child1->outputs->result", "child2->inputs->data"],
+["child1->outputs->result", "child3->inputs->data"],
 
-["child2.done",   "SINK.finished"],
-["child3.done",   "SINK.finished"]  // fan-in into SINK.finished
+["child2->outputs->done", "self->outputs->finished"],
+["child3->outputs->done", "self->outputs->finished"]
 ```
-
-Both are valid. Fan-in at `SINK.port` means multiple leaf nodes contribute to the same output port of the composite.
 
 ---
 
-## SOURCE and SINK sentinels
+## Replicas
 
-`SOURCE` and `SINK` are **reserved names** that must not be used as child instance names. They represent the input and output boundary of every composite node.
+A child can be replicated multiple times with optional variations:
 
-- All ports listed in `ports.in` of a composite **must** appear as the left-hand side of at least one `SOURCE.port → ...` edge.
-- All ports listed in `ports.out` of a composite **must** appear as the right-hand side of at least one `... → SINK.port` edge.
+```json
+"worker": {
+  "replicas": [
+    {"params": {"mode": "fast"}},
+    {"params": {"mode": "slow"}}
+  ],
+  "children": { "proc": {} },
+  "dag": [
+    ["worker->inputs->data", "proc->inputs->data"],
+    ["proc->outputs->result", "worker->outputs->result"]
+  ]
+}
+```
 
-At the **global level**, after full expansion, `SOURCE` and `SINK` become real nodes in the DAG wired to the root type's in_map and out_map respectively.
+- Each object in `"replicas"` is **deep-merged** on top of the base node definition (the replica variation wins on conflicts).
+- The resulting expanded instances are named `worker[0]`, `worker[1]`, etc.
+- In the parent's DAG, `"worker->outputs->result"` **broadcasts** to all replicas.
+- A specific replica is addressed as `"worker[0]->outputs->result"`.
 
 ---
 
-## Welding semantics (summary)
+## Welding semantics
 
-Given a fully expanded composite with child instances A and B, and a local edge `A.p → B.q`:
+Given a composite with children A and B, and a local edge `A->outputs->p → B->inputs->q`:
 
 ```
-exits(A, p)   = { (leaf_id, leaf_port) | leaf is in A's expansion
-                                       and leads to A's SINK via port p }
+exits(A, p)   = { (leaf_id, port) | leaf is in A's expansion
+                                  and leads to A's boundary via output port p }
 
-entries(B, q) = { (leaf_id, leaf_port) | leaf is in B's expansion
-                                       and is reachable from B's SOURCE via port q }
+entries(B, q) = { (leaf_id, port) | leaf is in B's expansion
+                                  and is reachable from B's boundary via input port q }
 
 weld: for every s in exits(A, p), for every d in entries(B, q):
           add global edge  s → d
@@ -144,13 +147,21 @@ Leaf nodes are their own exits and entries: `exits(L, p) = {(L, p)}`, `entries(L
 
 ---
 
+## Global DAG
+
+After full recursive expansion:
+- All composite boundaries dissolve; only leaf nodes remain as vertices.
+- Global `SOURCE` and `SINK` nodes are added, wired to the root node's in_map and out_map.
+- The result is a flat, acyclic graph with a single SOURCE and SINK.
+
+---
+
 ## Constraints
 
-1. The `root` type must be defined in `types`.
-2. Every type referenced in `children` must be defined in `types`.
-3. The local DAG of every composite must be acyclic.
-4. `SOURCE` and `SINK` are reserved and may not appear as child names.
-5. Ports referenced in edges must exist on the corresponding type definition.
+1. Every type referenced in `children` must be defined inline.
+2. The local DAG of every composite must be acyclic.
+3. The self-reference sentinel must match the composite node's own name exactly.
+4. Replica indices in `child[i]->...` must be within range.
 
 ---
 
@@ -158,26 +169,15 @@ Leaf nodes are their own exits and entries: `exits(L, p) = {(L, p)}`, `entries(L
 
 ```json
 {
-  "types": {
-    "Double": {
-      "ports": { "in": ["x"], "out": ["y"] }
-    },
-    "Pipeline": {
-      "ports": { "in": ["input"], "out": ["output"] },
-      "children": {
-        "first":  "Double",
-        "second": "Double"
-      },
-      "dag": {
-        "edges": [
-          ["SOURCE.input",  "first.x"],
-          ["first.y",       "second.x"],
-          ["second.y",      "SINK.output"]
-        ]
-      }
-    }
+  "children": {
+    "first":  {},
+    "second": {}
   },
-  "root": "Pipeline"
+  "dag": [
+    ["root->inputs->input",  "first->inputs->x"],
+    ["first->outputs->y",    "second->inputs->x"],
+    ["second->outputs->y",   "root->outputs->output"]
+  ]
 }
 ```
 
