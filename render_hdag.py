@@ -83,10 +83,11 @@ def expand(node_def, node_name, path, sentinel_name=None):
     nodes, edges = {}, []
     child_data   = {}  # child_name → list of (rname, in_map, out_map)
     cluster      = {
-        'node_name': node_name,
-        'node_id':   path,
-        'leaves':    [],
+        'node_name':   node_name,
+        'node_id':     path,
+        'leaves':      [],
         'subclusters': [],
+        'rank_groups': [],   # list of [node_id, ...] sets that must share rank
     }
 
     def _expand_one(c_name, c_def, r_name, r_sentinel):
@@ -108,12 +109,30 @@ def expand(node_def, node_name, path, sentinel_name=None):
         if 'replicas' in child_node:
             base         = {k: v for k, v in child_node.items() if k != 'replicas'}
             replica_list = []
+            replica_ids  = []   # child_id per replica, for rank grouping
             for i, variation in enumerate(child_node['replicas']):
                 merged = deep_merge(base, variation)
                 rname  = f"{child_name}[{i}]"
                 cim, com = _expand_one(child_name, merged, rname, child_name)
                 replica_list.append((rname, cim, com))
+                replica_ids.append(f"{path}.{rname}")
             child_data[child_name] = replica_list
+
+            # Group corresponding nodes across replicas at the same rank.
+            # For leaf replicas the group is the replica IDs themselves.
+            # For composite replicas, group nodes by their relative sub-path
+            # so that structurally equivalent leaves share a rank.
+            base_id    = replica_ids[0]
+            base_nodes = [nid for nid in nodes if nid == base_id or nid.startswith(base_id + '.')]
+            for base_node in base_nodes:
+                rel = base_node[len(base_id):]          # e.g. '' or '.proc'
+                group = [base_node]
+                for rid in replica_ids[1:]:
+                    peer = rid + rel
+                    if peer in nodes:
+                        group.append(peer)
+                if len(group) > 1:
+                    cluster['rank_groups'].append(group)
         else:
             cim, com = _expand_one(child_name, child_node, child_name, child_name)
             child_data[child_name] = [(child_name, cim, com)]
@@ -160,6 +179,14 @@ def expand(node_def, node_name, path, sentinel_name=None):
     return nodes, edges, my_in_map, my_out_map, cluster
 
 
+def collect_rank_groups(cluster):
+    """Walk the cluster tree and gather all rank_groups into a flat list."""
+    groups = list(cluster.get('rank_groups', []))
+    for sub in cluster.get('subclusters', []):
+        groups.extend(collect_rank_groups(sub))
+    return groups
+
+
 def build_global_dag(hdag):
     nodes, edges, in_map, out_map, cluster = expand(hdag, 'root', 'root')
 
@@ -174,7 +201,7 @@ def build_global_dag(hdag):
         for (s_id, s_port) in sources:
             edges.append((s_id, s_port, 'SINK', port))
 
-    return nodes, edges, cluster
+    return nodes, edges, cluster, collect_rank_groups(cluster)
 
 
 # ── Compass assignment ─────────────────────────────────────────────────────────
@@ -259,7 +286,7 @@ def add_cluster(parent, cluster, depth=0):
             add_cluster(c, sub, depth + 1)
 
 
-def render(nodes, edges, cluster, output_path="my_graph"):
+def render(nodes, edges, cluster, rank_groups=None, output_path="my_graph"):
     compass = build_compass_maps(nodes, edges)
 
     dot = graphviz.Digraph("GlobalDAG", format="svg")
@@ -276,6 +303,13 @@ def render(nodes, edges, cluster, output_path="my_graph"):
              fontname="Helvetica Bold", color="#bf360c")
 
     add_cluster(dot, cluster)
+
+    # Enforce same horizontal rank for all replica groups
+    for group in (rank_groups or []):
+        with dot.subgraph() as s:
+            s.attr(rank='same')
+            for nid in group:
+                s.node(nid)
 
     seen = set()
     for src_id, src_port, dst_id, dst_port in edges:
@@ -333,5 +367,5 @@ if __name__ == "__main__":
     with open(input_path) as f:
         hdag = json.load(f)
 
-    nodes, edges, cluster = build_global_dag(hdag)
-    render(nodes, edges, cluster, output_path)
+    nodes, edges, cluster, rank_groups = build_global_dag(hdag)
+    render(nodes, edges, cluster, rank_groups, output_path)
