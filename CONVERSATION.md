@@ -1,6 +1,6 @@
 # Design Conversation
 
-This document captures the design discussion that led to the HDAG definition language and renderer.
+This document captures the full design discussion that shaped the HDAG definition language and renderer.
 
 ---
 
@@ -16,89 +16,135 @@ This document captures the design discussion that led to the HDAG definition lan
 
 ## 2 — Adding named ports
 
-Each node exposes named **input ports** and **output ports**. Edges in a local DAG are port-to-port:
+Each node exposes named **input ports** and **output ports**. Edges in a local DAG are port-to-port. The welding rule becomes port-aware:
 
-```
-ChildA.out_port  →  ChildB.in_port
-```
-
-The welding rule becomes port-aware:
-
-- `exits(A, out_p)` = leaf nodes inside A's expansion that deliver output via port `out_p` (i.e. connected to A's SINK through that port)
-- `entries(B, in_q)` = leaf nodes inside B's expansion that receive input via port `in_q` (i.e. reachable from B's SOURCE through that port)
+- `exits(A, out_p)` = leaf nodes inside A's expansion that deliver output via port `out_p`
+- `entries(B, in_q)` = leaf nodes inside B's expansion that receive input via port `in_q`
 - For an edge `A.out_p → B.in_q`, connect every member of `exits(A, out_p)` to every member of `entries(B, in_q)`
 
 ---
 
-## 3 — SOURCE and SINK as global sentinels
+## 3 — Self-referential sentinels (replacing SOURCE / SINK)
 
-Rather than designating specific children as source/sink, **SOURCE** and **SINK** are global sentinel names that appear directly in every local DAG's edge list:
+**Original design:** `SOURCE` and `SINK` were reserved global names appearing in every local DAG's edge list:
+- `SOURCE.port → Child.port`
+- `Child.port → SINK.port`
 
-- `SOURCE.port → Child.port` — the composite node's input port `port` flows into `Child`
-- `Child.port → SINK.port` — `Child`'s output port becomes the composite node's output port
+**Revised design:** Each composite node uses its **own name** as the sentinel. This removes reserved keywords and makes the boundary reference self-documenting:
+- `validator->inputs->data → type_check->inputs->data`  *(old: `SOURCE.data → type_check.data`)*
+- `rule_engine->outputs->valid → validator->outputs->valid`  *(old: `rule_engine.valid → SINK.valid`)*
 
-This makes the "border" of every composite node explicit in the edge list, with no implicit name-matching.
+The root node's implied name is `"root"`.
 
 ---
 
-## 4 — Global DAG construction
+## 4 — Identity over types
 
-Starting from the root type, the expansion is recursive:
+**Original design:** Nodes referenced named *types* from a flat `types` dictionary. Two children of the same type shared a definition.
 
-1. Leaf nodes return themselves as a single node; their ports map 1-to-1.
-2. Composite nodes expand each child, then process the local edge list:
-   - `SOURCE.p → Child.q` edges build the composite's **in_map** (which leaf nodes receive the composite's input port `p`)
-   - `Child.p → SINK.q` edges build the composite's **out_map** (which leaf nodes provide the composite's output port `q`)
-   - All other edges are **welded**: the out_map entries of the source child are directly connected to the in_map entries of the destination child
-3. After full expansion, global SOURCE and SINK nodes are added and wired to the root's in_map / out_map.
+**Revised design:** Nodes are *identities*, not types. Each node in the JSON tree is a unique instance — the JSON structure itself is the hierarchy. No separate `types` dict, no `root` field.
+
+Key consequences:
+- `node T` at tree position X is distinct from `node T` at position Y even if they have the same name
+- Ports are **inferred** from edge references; no explicit `ports.in` / `ports.out` declarations needed
+- The JSON nesting directly mirrors the parent–child containment
+
+---
+
+## 5 — Replicas
+
+A child can be declared as a set of replicas with optional per-replica variations:
+
+```json
+"worker": {
+  "replicas": [
+    {"params": {"mode": "fast"}},
+    {"params": {"mode": "slow"}}
+  ],
+  "children": { "proc": {} },
+  "dag": [
+    ["worker->inputs->data", "proc->inputs->data"],
+    ["proc->outputs->result", "worker->outputs->result"]
+  ]
+}
+```
+
+- Each variation object **deep-merges** onto the base definition (variation wins on conflicts).
+- Expanded instances are named `worker[0]`, `worker[1]`, etc.
+- `"worker->outputs->result"` in the parent DAG **broadcasts** to all replicas.
+- `"worker[0]->outputs->result"` targets a specific replica.
+- In the Graphviz output, structurally equivalent nodes across replicas are placed at the **same horizontal rank** via `{ rank=same; ... }` subgraphs.
+
+---
+
+## 6 — Global DAG construction
+
+Starting from the root, expansion is recursive:
+
+1. **Leaf nodes** return themselves; their ports are inferred from how the parent wires them.
+2. **Composite nodes** expand each child, then process the local edge list:
+   - `self->inputs->p → child->inputs->q` edges build the composite's **in_map**
+   - `child->outputs->p → self->outputs->q` edges build the composite's **out_map**
+   - All other edges are **welded**: exits of the source child connect directly to entries of the dest child
+3. After full expansion, global `SOURCE` and `SINK` nodes are added and wired to the root's in_map / out_map.
 
 Key properties of the resulting global DAG:
-- **Acyclic** — guaranteed by the tree structure preventing cross-level back-edges
+- **Acyclic** — guaranteed by the tree structure
 - **Single SOURCE and SINK** — inherited from the root's boundary
 - **Flat** — all composite boundaries dissolved; only leaf nodes remain as vertices
 
 ---
 
-## 5 — Python renderer
+## 7 — Python renderer (`render_hdag.py`)
 
-`render_hdag.py` implements:
+Implements:
 
-- `expand(type_name, types, node_id)` — recursive expansion returning nodes, edges, in_map, out_map, and a cluster tree
-- `build_global_dag(hdag)` — calls expand on the root, then attaches global SOURCE/SINK
-- `render(nodes, edges, cluster, path)` — emits a Graphviz PNG with nested cluster subgraphs (one per composite node) and spline edges
+- `expand(node_def, node_name, path, sentinel_name)` — recursive, identity-based; infers ports from DAG edges; handles replicas via deep-merge
+- `collect_rank_groups(cluster)` — walks cluster tree to collect replica peer groups for `rank=same` enforcement
+- `build_global_dag(hdag)` — calls expand on root, attaches global SOURCE/SINK, returns `(nodes, edges, cluster, rank_groups)`
+- `render(nodes, edges, cluster, rank_groups, output_path)` — emits a Graphviz SVG with nested cluster subgraphs, spline edges, and `rank=same` for replica groups
 
-The **cluster tree** returned by `expand` mirrors the original hierarchy, allowing Graphviz `cluster_` subgraphs to be drawn nested — visually preserving the hierarchical structure even though the underlying graph is flat.
+The **cluster tree** mirrors the original hierarchy, allowing Graphviz `cluster_` subgraphs to be drawn nested — visually preserving the hierarchical structure even though the underlying graph is flat.
+
+### CLI
+
+```bash
+python render_hdag.py                          # hdag.json → hdag.svg
+python render_hdag.py my_pipeline.json         # → my_pipeline.svg
+python render_hdag.py my_pipeline.json -o out  # → out.svg
+```
 
 ---
 
-## 6 — Example: Document Processing Pipeline
+## 8 — Example: Document Processing Pipeline (`hdag.json`)
 
 ```
-DocumentPipeline  (7 children)
-├── reader          [Reader]
-├── deduper         [Deduper]
-├── validator       [ValidationLayer]   ← composite
-│   ├── type_check  [TypeCheck]
-│   ├── range_check [RangeCheck]
-│   ├── null_check  [NullCheck]
-│   └── rule_engine [RuleEngine]
-├── translate       [TranslationUnit]   ← composite
-│   ├── detector    [LangDetector]
-│   ├── translator  [Translator]
-│   └── quality     [QualityCheck]
-├── nlp             [NLPProcessor]      ← composite
-│   ├── tokenizer   [Tokenizer]
-│   ├── embedder    [Embedder]
-│   ├── classifier  [Classifier]
-│   ├── extractor   [Extractor]
-│   └── summarizer  [Summarizer]
-├── output          [OutputRouter]      ← composite
-│   ├── formatter   [Formatter]
-│   ├── db          [DBWriter]
-│   ├── cache       [CacheWriter]
-│   └── indexer     [SearchIndexer]
-└── logger          [Logger]
+root  (7 children)
+├── reader
+├── deduper
+├── validator           ← composite (4 children)
+│   ├── type_check
+│   ├── range_check
+│   ├── null_check
+│   └── rule_engine
+├── translate           ← composite (3 children)
+│   ├── detector
+│   ├── translator
+│   └── quality
+├── nlp                 ← composite (5 children)
+│   ├── tokenizer
+│   ├── embedder
+│   ├── classifier
+│   ├── extractor
+│   └── summarizer
+├── output              ← composite (4 children)
+│   ├── formatter
+│   ├── db
+│   ├── cache
+│   └── indexer
+└── logger
 ```
 
-Global DAG: **19 leaf nodes**, SOURCE and SINK, ~25 welded edges.
-Notable weld: `validator.rule_engine.valid` fans out to 6 leaf nodes across two different composites (`TranslationUnit` and `NLPProcessor`) simultaneously.
+Global DAG: **19 leaf nodes**, SOURCE and SINK, 31 welded edges.  
+Notable weld: `validator.rule_engine` fans out to 6 leaf nodes across `translate` and `nlp` simultaneously.
+
