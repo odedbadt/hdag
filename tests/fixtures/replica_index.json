@@ -1,0 +1,23 @@
+{
+  "children": {
+    "splitter": {},
+    "worker": {
+      "replicas": [{}, {}, {}],
+      "children": { "proc": {} },
+      "dag": [
+        ["worker->inputs->job", "proc->inputs->job"],
+        ["proc->outputs->done", "worker->outputs->done"]
+      ]
+    },
+    "priority_log": {},
+    "merger":       {}
+  },
+  "dag": [
+    ["root->inputs->in",          "splitter->inputs->job"],
+    ["splitter->outputs->job",    "worker->inputs->job"],
+    ["worker[0]->outputs->done",  "priority_log->inputs->event"],
+    ["worker->outputs->done",     "merger->inputs->result"],
+    ["priority_log->outputs->ok", "merger->inputs->ack"],
+    ["merger->outputs->out",      "root->outputs->out"]
+  ]
+}

@@ -1,0 +1,148 @@
+digraph GlobalDAG {
+	bgcolor=white fontname=Helvetica newrank=true nodesep=0.6 rankdir=LR ranksep=1.4 splines=spline
+	edge [arrowsize=0.7 color="#555555" fontname=Helvetica fontsize=9]
+	SOURCE [label=SOURCE color="#2e7d32" fillcolor="#4caf50" fontcolor=white fontname="Helvetica Bold" shape=invhouse style=filled]
+	SINK [label=SINK color="#bf360c" fillcolor="#e65100" fontcolor=white fontname="Helvetica Bold" shape=house style=filled]
+	subgraph cluster_root {
+		color="#3a7ebf" fillcolor="#e8f0fe" fontcolor="#3a7ebf" fontname="Helvetica Bold" fontsize=11 label="" penwidth=2 style="rounded,filled"
+		"root.in" [label=in color="#3a7ebf" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+		"root.out" [label=out color="#3a7ebf" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+		subgraph "cluster_root.fractal[0]" {
+			color="#e65100" fillcolor="#fff3e0" fontcolor="#e65100" fontname="Helvetica Bold" fontsize=11 label="fractal[0]" penwidth=2 style="rounded,filled"
+			"root.fractal[0].core" [label="fractal[0].core" color="#e65100" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+		}
+		subgraph "cluster_root.fractal[1]" {
+			color="#e65100" fillcolor="#fff3e0" fontcolor="#e65100" fontname="Helvetica Bold" fontsize=11 label="fractal[1]" penwidth=2 style="rounded,filled"
+			"root.fractal[1].core" [label="fractal[1].core" color="#e65100" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			"root.fractal[1].a" [label="fractal[1].a" color="#e65100" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			"root.fractal[1].b" [label="fractal[1].b" color="#e65100" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			"root.fractal[1].c" [label="fractal[1].c" color="#e65100" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+		}
+		subgraph "cluster_root.fractal[2]" {
+			color="#e65100" fillcolor="#fff3e0" fontcolor="#e65100" fontname="Helvetica Bold" fontsize=11 label="fractal[2]" penwidth=2 style="rounded,filled"
+			"root.fractal[2].core" [label="fractal[2].core" color="#e65100" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			"root.fractal[2].p" [label="fractal[2].p" color="#e65100" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			"root.fractal[2].q" [label="fractal[2].q" color="#e65100" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			"root.fractal[2].r" [label="fractal[2].r" color="#e65100" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			"root.fractal[2].s" [label="fractal[2].s" color="#e65100" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+		}
+		subgraph "cluster_root.fractal[3]" {
+			color="#e65100" fillcolor="#fff3e0" fontcolor="#e65100" fontname="Helvetica Bold" fontsize=11 label="fractal[3]" penwidth=2 style="rounded,filled"
+			"root.fractal[3].core" [label="fractal[3].core" color="#e65100" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			subgraph "cluster_root.fractal[3].sub[0]" {
+				color="#2e7d32" fillcolor="#e8f5e9" fontcolor="#2e7d32" fontname="Helvetica Bold" fontsize=11 label="fractal[3].sub[0]" penwidth=2 style="rounded,filled"
+				"root.fractal[3].sub[0].u" [label="fractal[3].sub[0].u" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			}
+			subgraph "cluster_root.fractal[3].sub[1]" {
+				color="#2e7d32" fillcolor="#e8f5e9" fontcolor="#2e7d32" fontname="Helvetica Bold" fontsize=11 label="fractal[3].sub[1]" penwidth=2 style="rounded,filled"
+				"root.fractal[3].sub[1].u" [label="fractal[3].sub[1].u" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+				"root.fractal[3].sub[1].post" [label="fractal[3].sub[1].post" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			}
+			subgraph "cluster_root.fractal[3].sub[2]" {
+				color="#2e7d32" fillcolor="#e8f5e9" fontcolor="#2e7d32" fontname="Helvetica Bold" fontsize=11 label="fractal[3].sub[2]" penwidth=2 style="rounded,filled"
+				"root.fractal[3].sub[2].u" [label="fractal[3].sub[2].u" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			}
+			{
+				rank=same
+				"root.fractal[3].sub[0].u"
+				"root.fractal[3].sub[1].u"
+				"root.fractal[3].sub[2].u"
+			}
+		}
+		subgraph "cluster_root.fractal[4]" {
+			color="#e65100" fillcolor="#fff3e0" fontcolor="#e65100" fontname="Helvetica Bold" fontsize=11 label="fractal[4]" penwidth=2 style="rounded,filled"
+			"root.fractal[4].core" [label="fractal[4].core" color="#e65100" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			subgraph "cluster_root.fractal[4].sub[0]" {
+				color="#2e7d32" fillcolor="#e8f5e9" fontcolor="#2e7d32" fontname="Helvetica Bold" fontsize=11 label="fractal[4].sub[0]" penwidth=2 style="rounded,filled"
+				"root.fractal[4].sub[0].u" [label="fractal[4].sub[0].u" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			}
+			subgraph "cluster_root.fractal[4].sub[1]" {
+				color="#2e7d32" fillcolor="#e8f5e9" fontcolor="#2e7d32" fontname="Helvetica Bold" fontsize=11 label="fractal[4].sub[1]" penwidth=2 style="rounded,filled"
+				"root.fractal[4].sub[1].u" [label="fractal[4].sub[1].u" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+				"root.fractal[4].sub[1].log" [label="fractal[4].sub[1].log" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			}
+			subgraph "cluster_root.fractal[4].sub[2]" {
+				color="#2e7d32" fillcolor="#e8f5e9" fontcolor="#2e7d32" fontname="Helvetica Bold" fontsize=11 label="fractal[4].sub[2]" penwidth=2 style="rounded,filled"
+				"root.fractal[4].sub[2].u" [label="fractal[4].sub[2].u" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			}
+			subgraph "cluster_root.fractal[4].sub[3]" {
+				color="#2e7d32" fillcolor="#e8f5e9" fontcolor="#2e7d32" fontname="Helvetica Bold" fontsize=11 label="fractal[4].sub[3]" penwidth=2 style="rounded,filled"
+				"root.fractal[4].sub[3].u" [label="fractal[4].sub[3].u" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+				"root.fractal[4].sub[3].norm" [label="fractal[4].sub[3].norm" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+				"root.fractal[4].sub[3].tag" [label="fractal[4].sub[3].tag" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			}
+			{
+				rank=same
+				"root.fractal[4].sub[0].u"
+				"root.fractal[4].sub[1].u"
+				"root.fractal[4].sub[2].u"
+				"root.fractal[4].sub[3].u"
+			}
+		}
+		subgraph "cluster_root.fractal[5]" {
+			color="#e65100" fillcolor="#fff3e0" fontcolor="#e65100" fontname="Helvetica Bold" fontsize=11 label="fractal[5]" penwidth=2 style="rounded,filled"
+			"root.fractal[5].core" [label="fractal[5].core" color="#e65100" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			subgraph "cluster_root.fractal[5].sub[0]" {
+				color="#2e7d32" fillcolor="#e8f5e9" fontcolor="#2e7d32" fontname="Helvetica Bold" fontsize=11 label="fractal[5].sub[0]" penwidth=2 style="rounded,filled"
+				"root.fractal[5].sub[0].u" [label="fractal[5].sub[0].u" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+				"root.fractal[5].sub[0].head" [label="fractal[5].sub[0].head" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+				"root.fractal[5].sub[0].tail" [label="fractal[5].sub[0].tail" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			}
+			subgraph "cluster_root.fractal[5].sub[1]" {
+				color="#2e7d32" fillcolor="#e8f5e9" fontcolor="#2e7d32" fontname="Helvetica Bold" fontsize=11 label="fractal[5].sub[1]" penwidth=2 style="rounded,filled"
+				"root.fractal[5].sub[1].u" [label="fractal[5].sub[1].u" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			}
+			{
+				rank=same
+				"root.fractal[5].sub[0].u"
+				"root.fractal[5].sub[1].u"
+			}
+		}
+		{
+			rank=same
+			"root.fractal[0].core"
+			"root.fractal[1].core"
+			"root.fractal[2].core"
+			"root.fractal[3].core"
+			"root.fractal[4].core"
+			"root.fractal[5].core"
+		}
+	}
+	"root.fractal[1].a":e -> "root.fractal[1].b":w [label="y→x"]
+	"root.fractal[1].b":e -> "root.fractal[1].c":w [label="y→x"]
+	"root.fractal[2].p":e -> "root.fractal[2].q":w [label="y→x"]
+	"root.fractal[2].q":e -> "root.fractal[2].r":w [label="y→x"]
+	"root.fractal[2].r":e -> "root.fractal[2].s":w [label="y→x"]
+	"root.fractal[3].sub[1].u":e -> "root.fractal[3].sub[1].post":w [label="y→x"]
+	"root.fractal[4].sub[1].u":e -> "root.fractal[4].sub[1].log":w [label="y→m"]
+	"root.fractal[4].sub[3].norm":e -> "root.fractal[4].sub[3].u":w [label="y→x"]
+	"root.fractal[4].sub[3].u":e -> "root.fractal[4].sub[3].tag":w [label="y→x"]
+	"root.fractal[5].sub[0].head":e -> "root.fractal[5].sub[0].u":w [label="y→x"]
+	"root.fractal[5].sub[0].u":e -> "root.fractal[5].sub[0].tail":w [label="y→x"]
+	"root.in":e -> "root.fractal[0].core":w [label="y→x"]
+	"root.in":e -> "root.fractal[1].a":w [label="y→x"]
+	"root.in":e -> "root.fractal[2].p":w [label="y→x"]
+	"root.in":e -> "root.fractal[3].sub[0].u":w [label="y→x"]
+	"root.in":e -> "root.fractal[3].sub[1].u":w [label="y→x"]
+	"root.in":e -> "root.fractal[3].sub[2].u":w [label="y→x"]
+	"root.in":e -> "root.fractal[4].sub[0].u":w [label="y→x"]
+	"root.in":e -> "root.fractal[4].sub[1].u":w [label="y→x"]
+	"root.in":e -> "root.fractal[4].sub[2].u":w [label="y→x"]
+	"root.in":e -> "root.fractal[4].sub[3].norm":w [label="y→x"]
+	"root.in":e -> "root.fractal[5].sub[0].head":w [label="y→x"]
+	"root.in":e -> "root.fractal[5].sub[1].u":w [label="y→x"]
+	"root.fractal[0].core":e -> "root.out":w [label="y→x"]
+	"root.fractal[1].c":e -> "root.out":w [label="y→x"]
+	"root.fractal[2].s":e -> "root.out":w [label="y→x"]
+	"root.fractal[3].sub[0].u":e -> "root.out":w [label="y→x"]
+	"root.fractal[3].sub[1].post":e -> "root.out":w [label="y→x"]
+	"root.fractal[3].sub[2].u":e -> "root.out":w [label="y→x"]
+	"root.fractal[4].sub[0].u":e -> "root.out":w [label="y→x"]
+	"root.fractal[4].sub[1].log":e -> "root.out":w [label="n→x"]
+	"root.fractal[4].sub[2].u":e -> "root.out":w [label="y→x"]
+	"root.fractal[4].sub[3].tag":e -> "root.out":w [label="y→x"]
+	"root.fractal[5].sub[0].tail":e -> "root.out":w [label="y→x"]
+	"root.fractal[5].sub[1].u":e -> "root.out":w [label="y→x"]
+	SOURCE:e -> "root.in":w [label="src→x"]
+	"root.out":e -> SINK:w [label="y→dst"]
+}

@@ -1,0 +1,123 @@
+{
+  "children": {
+    "in":  {},
+    "fractal": {
+      "replicas": [
+        {},
+        {
+          "children": { "a": {}, "b": {}, "c": {} },
+          "dag": [
+            ["fractal->inputs->in", "a->inputs->x"],
+            ["a->outputs->y",       "b->inputs->x"],
+            ["b->outputs->y",       "c->inputs->x"],
+            ["c->outputs->y",       "fractal->outputs->out"]
+          ]
+        },
+        {
+          "children": { "p": {}, "q": {}, "r": {}, "s": {} },
+          "dag": [
+            ["fractal->inputs->in", "p->inputs->x"],
+            ["p->outputs->y",       "q->inputs->x"],
+            ["q->outputs->y",       "r->inputs->x"],
+            ["r->outputs->y",       "s->inputs->x"],
+            ["s->outputs->y",       "fractal->outputs->out"]
+          ]
+        },
+        {
+          "children": {
+            "sub": {
+              "replicas": [
+                {},
+                { "children": { "post": {} }, "dag": [
+                    ["sub->inputs->in",   "u->inputs->x"],
+                    ["u->outputs->y",     "post->inputs->x"],
+                    ["post->outputs->y",  "sub->outputs->out"]
+                  ]
+                },
+                {}
+              ],
+              "children": { "u": {} },
+              "dag": [
+                ["sub->inputs->in", "u->inputs->x"],
+                ["u->outputs->y",   "sub->outputs->out"]
+              ]
+            }
+          },
+          "dag": [
+            ["fractal->inputs->in",   "sub->inputs->in"],
+            ["sub->outputs->out",     "fractal->outputs->out"]
+          ]
+        },
+        {
+          "children": {
+            "sub": {
+              "replicas": [
+                {},
+                { "children": { "log": {} }, "dag": [
+                    ["sub->inputs->in", "u->inputs->x"],
+                    ["u->outputs->y",   "log->inputs->m"],
+                    ["log->outputs->n", "sub->outputs->out"]
+                  ]
+                },
+                {},
+                { "children": { "norm": {}, "tag": {} }, "dag": [
+                    ["sub->inputs->in",  "norm->inputs->x"],
+                    ["norm->outputs->y", "u->inputs->x"],
+                    ["u->outputs->y",    "tag->inputs->x"],
+                    ["tag->outputs->y",  "sub->outputs->out"]
+                  ]
+                }
+              ],
+              "children": { "u": {} },
+              "dag": [
+                ["sub->inputs->in", "u->inputs->x"],
+                ["u->outputs->y",   "sub->outputs->out"]
+              ]
+            }
+          },
+          "dag": [
+            ["fractal->inputs->in", "sub->inputs->in"],
+            ["sub->outputs->out",   "fractal->outputs->out"]
+          ]
+        },
+        {
+          "children": {
+            "sub": {
+              "replicas": [
+                { "children": { "head": {}, "tail": {} }, "dag": [
+                    ["sub->inputs->in",   "head->inputs->x"],
+                    ["head->outputs->y",  "u->inputs->x"],
+                    ["u->outputs->y",     "tail->inputs->x"],
+                    ["tail->outputs->y",  "sub->outputs->out"]
+                  ]
+                },
+                {}
+              ],
+              "children": { "u": {} },
+              "dag": [
+                ["sub->inputs->in", "u->inputs->x"],
+                ["u->outputs->y",   "sub->outputs->out"]
+              ]
+            }
+          },
+          "dag": [
+            ["fractal->inputs->in", "sub->inputs->in"],
+            ["sub->outputs->out",   "fractal->outputs->out"]
+          ]
+        }
+      ],
+      "children": { "core": {} },
+      "dag": [
+        ["fractal->inputs->in", "core->inputs->x"],
+        ["core->outputs->y",    "fractal->outputs->out"]
+      ]
+    },
+    "out": {}
+  },
+  "dag": [
+    ["root->inputs->src",     "in->inputs->x"],
+    ["in->outputs->y",        "fractal->inputs->in"],
+    ["fractal->outputs->out", "out->inputs->x"],
+    ["out->outputs->y",       "root->outputs->dst"]
+  ]
+}
