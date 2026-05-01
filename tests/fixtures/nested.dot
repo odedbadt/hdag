@@ -1,0 +1,33 @@
+digraph GlobalDAG {
+	bgcolor=white fontname=Helvetica newrank=true nodesep=0.6 rankdir=LR ranksep=1.4 splines=spline
+	edge [arrowsize=0.7 color="#555555" fontname=Helvetica fontsize=9]
+	SOURCE [label=SOURCE color="#2e7d32" fillcolor="#4caf50" fontcolor=white fontname="Helvetica Bold" shape=invhouse style=filled]
+	SINK [label=SINK color="#bf360c" fillcolor="#e65100" fontcolor=white fontname="Helvetica Bold" shape=house style=filled]
+	subgraph cluster_root {
+		color="#3a7ebf" fillcolor="#e8f0fe" fontcolor="#3a7ebf" fontname="Helvetica Bold" fontsize=11 label="" penwidth=2 style="rounded,filled"
+		"root.input" [label=input color="#3a7ebf" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+		"root.output" [label=output color="#3a7ebf" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+		subgraph "cluster_root.pipeline" {
+			color="#e65100" fillcolor="#fff3e0" fontcolor="#e65100" fontname="Helvetica Bold" fontsize=11 label=pipeline penwidth=2 style="rounded,filled"
+			"root.pipeline.stage3" [label="pipeline.stage3" color="#e65100" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			subgraph "cluster_root.pipeline.stage1" {
+				color="#2e7d32" fillcolor="#e8f5e9" fontcolor="#2e7d32" fontname="Helvetica Bold" fontsize=11 label="pipeline.stage1" penwidth=2 style="rounded,filled"
+				"root.pipeline.stage1.parse" [label="pipeline.stage1.parse" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+				"root.pipeline.stage1.normalize" [label="pipeline.stage1.normalize" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			}
+			subgraph "cluster_root.pipeline.stage2" {
+				color="#2e7d32" fillcolor="#e8f5e9" fontcolor="#2e7d32" fontname="Helvetica Bold" fontsize=11 label="pipeline.stage2" penwidth=2 style="rounded,filled"
+				"root.pipeline.stage2.enrich" [label="pipeline.stage2.enrich" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+				"root.pipeline.stage2.classify" [label="pipeline.stage2.classify" color="#2e7d32" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+			}
+		}
+	}
+	"root.pipeline.stage1.parse":e -> "root.pipeline.stage1.normalize":w [label="tokens→tokens"]
+	"root.pipeline.stage2.enrich":e -> "root.pipeline.stage2.classify":w [label="enriched→data"]
+	"root.pipeline.stage1.normalize":e -> "root.pipeline.stage2.enrich":w [label="clean→data"]
+	"root.pipeline.stage2.classify":e -> "root.pipeline.stage3":w [label="labels→labels"]
+	"root.input":e -> "root.pipeline.stage1.parse":w [label="raw→raw"]
+	"root.pipeline.stage3":e -> "root.output":w [label="report→report"]
+	SOURCE:e -> "root.input":w [label="source→src"]
+	"root.output":e -> SINK:w [label="done→done"]
+}

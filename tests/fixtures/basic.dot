@@ -1,0 +1,14 @@
+digraph GlobalDAG {
+	bgcolor=white fontname=Helvetica newrank=true nodesep=0.6 rankdir=LR ranksep=1.4 splines=spline
+	edge [arrowsize=0.7 color="#555555" fontname=Helvetica fontsize=9]
+	SOURCE [label=SOURCE color="#2e7d32" fillcolor="#4caf50" fontcolor=white fontname="Helvetica Bold" shape=invhouse style=filled]
+	SINK [label=SINK color="#bf360c" fillcolor="#e65100" fontcolor=white fontname="Helvetica Bold" shape=house style=filled]
+	subgraph cluster_root {
+		color="#3a7ebf" fillcolor="#e8f0fe" fontcolor="#3a7ebf" fontname="Helvetica Bold" fontsize=11 label="" penwidth=2 style="rounded,filled"
+		"root.first" [label=first color="#3a7ebf" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+		"root.second" [label=second color="#3a7ebf" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+	}
+	"root.first":e -> "root.second":w [label="y→x"]
+	SOURCE:e -> "root.first":w [label="input→x"]
+	"root.second":e -> SINK:w [label="y→output"]
+}

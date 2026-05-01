@@ -1,0 +1,31 @@
+{
+  "children": {
+    "input": {},
+    "A": {
+      "children": {
+        "B": {
+          "children": {
+            "A":    {},
+            "tail": {}
+          },
+          "dag": [
+            ["B->inputs->in",    "A->inputs->x"],
+            ["A->outputs->y",    "tail->inputs->z"],
+            ["tail->outputs->w", "B->outputs->out"]
+          ]
+        }
+      },
+      "dag": [
+        ["A->inputs->in",   "B->inputs->in"],
+        ["B->outputs->out", "A->outputs->out"]
+      ]
+    },
+    "output": {}
+  },
+  "dag": [
+    ["root->inputs->source", "input->inputs->in"],
+    ["input->outputs->out",  "A->inputs->in"],
+    ["A->outputs->out",      "output->inputs->in"],
+    ["output->outputs->out", "root->outputs->result"]
+  ]
+}

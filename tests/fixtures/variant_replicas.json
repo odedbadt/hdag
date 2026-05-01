@@ -1,0 +1,26 @@
+{
+  "children": {
+    "worker": {
+      "replicas": [
+        {
+          "children": { "validate": {} },
+          "dag": [
+            ["worker->inputs->data",     "process->inputs->data"],
+            ["process->outputs->result", "validate->inputs->data"],
+            ["validate->outputs->ok",    "worker->outputs->result"]
+          ]
+        },
+        {}
+      ],
+      "children": { "process": {} },
+      "dag": [
+        ["worker->inputs->data",     "process->inputs->data"],
+        ["process->outputs->result", "worker->outputs->result"]
+      ]
+    }
+  },
+  "dag": [
+    ["root->inputs->input",     "worker->inputs->data"],
+    ["worker->outputs->result", "root->outputs->output"]
+  ]
+}

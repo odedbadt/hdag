@@ -156,11 +156,34 @@ After full recursive expansion:
 
 ---
 
+## Sentinel override
+
+By default the self-reference sentinel is the composite node's own name. A composite may override this by declaring a `sentinel` field, which is required when a child shares the parent's name (otherwise edges referencing that name would resolve as boundary references rather than as child references).
+
+```json
+"validator": {
+  "sentinel": "_self",
+  "children": {
+    "validator": {},
+    "logger":    {}
+  },
+  "dag": [
+    ["_self->inputs->data",       "validator->inputs->data"],
+    ["validator->outputs->valid", "logger->inputs->event"],
+    ["logger->outputs->ack",      "_self->outputs->done"]
+  ]
+}
+```
+
+The override only changes which token denotes the boundary inside this composite's local dag. The instance's own name (`validator`, used for path/display) is unchanged.
+
+---
+
 ## Constraints
 
 1. Every type referenced in `children` must be defined inline.
 2. The local DAG of every composite must be acyclic.
-3. The self-reference sentinel must match the composite node's own name exactly.
+3. The self-reference sentinel must not collide with any direct child name. If a child reuses the parent's name, the parent must declare a distinct `sentinel`.
 4. Replica indices in `child[i]->...` must be within range.
 
 ---

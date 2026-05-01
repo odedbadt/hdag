@@ -1,0 +1,20 @@
+{
+  "children": {
+    "splitter": {},
+    "worker": {
+      "replicas": [{}, {}, {}],
+      "children": { "proc": {} },
+      "dag": [
+        ["worker->inputs->data",   "proc->inputs->data"],
+        ["proc->outputs->result",  "worker->outputs->result"]
+      ]
+    },
+    "merger": {}
+  },
+  "dag": [
+    ["root->inputs->input",       "splitter->inputs->data"],
+    ["splitter->outputs->chunk",  "worker->inputs->data"],
+    ["worker->outputs->result",   "merger->inputs->result"],
+    ["merger->outputs->out",      "root->outputs->output"]
+  ]
+}

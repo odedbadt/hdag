@@ -34,19 +34,19 @@ def deep_merge(base, override):
 
 # ── Expansion ──────────────────────────────────────────────────────────────────
 
-def expand(node_def, node_name, path, sentinel_name=None):
+def expand(node_def, node_name, path, default_sentinel=None):
     """
     Recursively expand a node.
 
     Parameters
     ----------
-    node_def      : dict  — the JSON definition for this node
-    node_name     : str   — instance name (may be 'A[0]' for replicas)
-    path          : str   — fully-qualified dot-path id, e.g. 'root.validator.type_check'
-    sentinel_name : str   — name to match for self-reference in dag edges;
-                            defaults to node_name (replica base names pass the
-                            original child_name so 'worker->inputs->x' still
-                            matches inside 'worker[0]')
+    node_def         : dict — the JSON definition for this node
+    node_name        : str  — instance name (may be 'A[0]' for replicas)
+    path             : str  — fully-qualified dot-path id, e.g. 'root.validator.type_check'
+    default_sentinel : str  — fallback for the self-reference token if node_def
+                              does not specify a 'sentinel'. Defaults to node_name.
+                              Replica callers pass the base child name so
+                              'worker->inputs->x' still matches inside 'worker[0]'.
 
     Returns
     -------
@@ -56,8 +56,9 @@ def expand(node_def, node_name, path, sentinel_name=None):
     out_map : {port: [(node_id, port)]}  — exit points for this node
     cluster : cluster dict or None for leaves
     """
-    if sentinel_name is None:
-        sentinel_name = node_name
+    if default_sentinel is None:
+        default_sentinel = node_name
+    sentinel_name = node_def.get('sentinel', default_sentinel)
 
     # ── Leaf ──────────────────────────────────────────────────────────────────
     if 'children' not in node_def:
@@ -66,6 +67,13 @@ def expand(node_def, node_name, path, sentinel_name=None):
     # ── Composite ─────────────────────────────────────────────────────────────
     children_def = node_def.get('children', {})
     dag_edges    = node_def.get('dag', [])
+
+    if sentinel_name in children_def:
+        raise ValueError(
+            f"Node {node_name!r} sentinel {sentinel_name!r} collides with a "
+            f"child of the same name. Set a 'sentinel' field on the parent to "
+            f"a name not used by any child."
+        )
 
     # First pass: infer ports for each direct child from dag_edges
     child_inferred_ports = {}
@@ -90,9 +98,9 @@ def expand(node_def, node_name, path, sentinel_name=None):
         'rank_groups': [],   # list of [node_id, ...] sets that must share rank
     }
 
-    def _expand_one(c_name, c_def, r_name, r_sentinel):
+    def _expand_one(c_name, c_def, r_name, r_default_sentinel):
         child_id = f"{path}.{r_name}"
-        cn, ce, cim, com, child_cluster = expand(c_def, r_name, child_id, sentinel_name=r_sentinel)
+        cn, ce, cim, com, child_cluster = expand(c_def, r_name, child_id, default_sentinel=r_default_sentinel)
         nodes.update(cn)
         edges.extend(ce)
         if cim is None:  # leaf — build maps from inferred ports
@@ -179,14 +187,6 @@ def expand(node_def, node_name, path, sentinel_name=None):
     return nodes, edges, my_in_map, my_out_map, cluster
 
 
-def collect_rank_groups(cluster):
-    """Walk the cluster tree and gather all rank_groups into a flat list."""
-    groups = list(cluster.get('rank_groups', []))
-    for sub in cluster.get('subclusters', []):
-        groups.extend(collect_rank_groups(sub))
-    return groups
-
-
 def build_global_dag(hdag):
     nodes, edges, in_map, out_map, cluster = expand(hdag, 'root', 'root')
 
@@ -201,13 +201,21 @@ def build_global_dag(hdag):
         for (s_id, s_port) in sources:
             edges.append((s_id, s_port, 'SINK', port))
 
-    return nodes, edges, cluster, collect_rank_groups(cluster)
+    return nodes, edges, cluster
 
 
 # ── Compass assignment ─────────────────────────────────────────────────────────
 
-IN_COMPASS  = ["nw", "w", "sw"]
-OUT_COMPASS = ["ne", "e", "se"]
+# rankdir → (in_compass, out_compass, default_src_cp, default_dst_cp).
+# Inputs sit on the "incoming" side of the node, outputs on the opposite side.
+RANKDIR_COMPASS = {
+    "LR": (["nw", "w",  "sw"], ["ne", "e",  "se"], "e", "w"),
+    "RL": (["ne", "e",  "se"], ["nw", "w",  "sw"], "w", "e"),
+    "TB": (["nw", "n",  "ne"], ["sw", "s",  "se"], "s", "n"),
+    "BT": (["sw", "s",  "se"], ["nw", "n",  "ne"], "n", "s"),
+}
+# Friendly aliases — Graphviz only accepts the canonical 4 above.
+RANKDIR_ALIASES = {"TD": "TB", "DT": "BT"}
 
 
 def spread(ports, candidates):
@@ -227,11 +235,11 @@ def spread(ports, candidates):
     return result
 
 
-def build_compass_maps(nodes, edges):
+def build_compass_maps(nodes, edges, in_compass, out_compass):
     """
     For every node return {port_name: compass_point}.
-    Ports are inferred from edge usage.
-    SOURCE: all ports → east side.  SINK: all ports → west side.
+    Ports are inferred from edge usage. Compass sides are caller-supplied so
+    they can be matched to the chosen rankdir.
     """
     # Collect ordered, deduplicated port lists from edge usage
     in_ports  = {nid: list(dict.fromkeys(dp for _, _, did, dp in edges if did == nid))
@@ -242,13 +250,13 @@ def build_compass_maps(nodes, edges):
     compass = {}
     for node_id in nodes:
         if node_id == 'SOURCE':
-            compass['SOURCE'] = spread(out_ports['SOURCE'], OUT_COMPASS)
+            compass['SOURCE'] = spread(out_ports['SOURCE'], out_compass)
         elif node_id == 'SINK':
-            compass['SINK'] = spread(in_ports['SINK'], IN_COMPASS)
+            compass['SINK'] = spread(in_ports['SINK'], in_compass)
         else:
             compass[node_id] = {
-                **spread(in_ports[node_id],  IN_COMPASS),
-                **spread(out_ports[node_id], OUT_COMPASS),
+                **spread(in_ports[node_id],  in_compass),
+                **spread(out_ports[node_id], out_compass),
             }
 
     return compass
@@ -285,12 +293,30 @@ def add_cluster(parent, cluster, depth=0):
         for sub in cluster["subclusters"]:
             add_cluster(c, sub, depth + 1)
 
+        # rank=same groups must live inside the LCA cluster of the grouped
+        # nodes — emitting them at the digraph level makes Graphviz strip the
+        # nodes from their owning cluster and crash.
+        for group in cluster.get("rank_groups", []):
+            with c.subgraph() as s:
+                s.attr(rank="same")
+                for nid in group:
+                    s.node(nid)
 
-def render(nodes, edges, cluster, rank_groups=None, output_path="my_graph"):
-    compass = build_compass_maps(nodes, edges)
+
+def build_dot(nodes, edges, cluster, rankdir="LR"):
+    rankdir = RANKDIR_ALIASES.get(rankdir, rankdir)
+    if rankdir not in RANKDIR_COMPASS:
+        raise ValueError(
+            f"Unsupported rankdir {rankdir!r}; expected one of "
+            f"{sorted(set(RANKDIR_COMPASS) | set(RANKDIR_ALIASES))}"
+        )
+    in_compass, out_compass, default_src_cp, default_dst_cp = RANKDIR_COMPASS[rankdir]
+    compass = build_compass_maps(nodes, edges, in_compass, out_compass)
 
     dot = graphviz.Digraph("GlobalDAG", format="svg")
-    dot.attr(rankdir="LR", fontname="Helvetica", splines="spline",
+    # newrank=true lets rank=same span nodes that live in different clusters
+    # (needed for replica rank groups, where each replica owns its own cluster).
+    dot.attr(rankdir=rankdir, newrank="true", fontname="Helvetica", splines="spline",
              nodesep="0.6", ranksep="1.4", bgcolor="white")
     dot.attr("edge", color="#555555", fontname="Helvetica",
              fontsize="9", arrowsize="0.7")
@@ -304,28 +330,27 @@ def render(nodes, edges, cluster, rank_groups=None, output_path="my_graph"):
 
     add_cluster(dot, cluster)
 
-    # Enforce same horizontal rank for all replica groups
-    for group in (rank_groups or []):
-        with dot.subgraph() as s:
-            s.attr(rank='same')
-            for nid in group:
-                s.node(nid)
-
     seen = set()
     for src_id, src_port, dst_id, dst_port in edges:
         key = (src_id, src_port, dst_id, dst_port)
         if key in seen:
             continue
         seen.add(key)
-        src_cp = compass[src_id].get(src_port, "e")
-        dst_cp = compass[dst_id].get(dst_port, "w")
+        src_cp = compass[src_id].get(src_port, default_src_cp)
+        dst_cp = compass[dst_id].get(dst_port, default_dst_cp)
         dot.edge(f"{src_id}:{src_cp}", f"{dst_id}:{dst_cp}",
                  label=f"{src_port}→{dst_port}")
+
+    return dot
+
+
+def render(nodes, edges, cluster, output_path="my_graph", rankdir="LR"):
+    dot = build_dot(nodes, edges, cluster, rankdir=rankdir)
 
     dot.render(output_path, cleanup=True)
     print(f"Rendered → {output_path}.svg")
 
-    with open("hdag.dot", "w") as f:
+    with open(f"{output_path}.dot", "w") as f:
         f.write(dot.source)
 
     # Inject metadata into SVG for the viewer
@@ -359,6 +384,9 @@ if __name__ == "__main__":
                         help="Path to the HDAG JSON file (default: hdag.json)")
     parser.add_argument("-o", "--output", default=None,
                         help="Output path without extension (default: stem of input file)")
+    parser.add_argument("--rankdir", default="LR",
+                        choices=sorted(set(RANKDIR_COMPASS) | set(RANKDIR_ALIASES)),
+                        help="Layout direction: LR (default), RL, TB/TD, BT/DT")
     args = parser.parse_args()
 
     input_path  = pathlib.Path(args.hdag_file)
@@ -367,5 +395,5 @@ if __name__ == "__main__":
     with open(input_path) as f:
         hdag = json.load(f)
 
-    nodes, edges, cluster, rank_groups = build_global_dag(hdag)
-    render(nodes, edges, cluster, rank_groups, output_path)
+    nodes, edges, cluster = build_global_dag(hdag)
+    render(nodes, edges, cluster, output_path, rankdir=args.rankdir)

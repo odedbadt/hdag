@@ -1,0 +1,20 @@
+{
+  "children": {
+    "validator": {
+      "sentinel": "_self",
+      "children": {
+        "validator": {},
+        "logger":    {}
+      },
+      "dag": [
+        ["_self->inputs->data",       "validator->inputs->data"],
+        ["validator->outputs->valid", "logger->inputs->event"],
+        ["logger->outputs->ack",      "_self->outputs->done"]
+      ]
+    }
+  },
+  "dag": [
+    ["root->inputs->in",      "validator->inputs->data"],
+    ["validator->outputs->done", "root->outputs->out"]
+  ]
+}

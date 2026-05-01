@@ -1,0 +1,37 @@
+digraph GlobalDAG {
+	bgcolor=white fontname=Helvetica newrank=true nodesep=0.6 rankdir=LR ranksep=1.4 splines=spline
+	edge [arrowsize=0.7 color="#555555" fontname=Helvetica fontsize=9]
+	SOURCE [label=SOURCE color="#2e7d32" fillcolor="#4caf50" fontcolor=white fontname="Helvetica Bold" shape=invhouse style=filled]
+	SINK [label=SINK color="#bf360c" fillcolor="#e65100" fontcolor=white fontname="Helvetica Bold" shape=house style=filled]
+	subgraph cluster_root {
+		color="#3a7ebf" fillcolor="#e8f0fe" fontcolor="#3a7ebf" fontname="Helvetica Bold" fontsize=11 label="" penwidth=2 style="rounded,filled"
+		"root.splitter" [label=splitter color="#3a7ebf" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+		"root.merger" [label=merger color="#3a7ebf" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+		subgraph "cluster_root.worker[0]" {
+			color="#e65100" fillcolor="#fff3e0" fontcolor="#e65100" fontname="Helvetica Bold" fontsize=11 label="worker[0]" penwidth=2 style="rounded,filled"
+			"root.worker[0].proc" [label="worker[0].proc" color="#e65100" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+		}
+		subgraph "cluster_root.worker[1]" {
+			color="#e65100" fillcolor="#fff3e0" fontcolor="#e65100" fontname="Helvetica Bold" fontsize=11 label="worker[1]" penwidth=2 style="rounded,filled"
+			"root.worker[1].proc" [label="worker[1].proc" color="#e65100" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+		}
+		subgraph "cluster_root.worker[2]" {
+			color="#e65100" fillcolor="#fff3e0" fontcolor="#e65100" fontname="Helvetica Bold" fontsize=11 label="worker[2]" penwidth=2 style="rounded,filled"
+			"root.worker[2].proc" [label="worker[2].proc" color="#e65100" fillcolor=white fontname=Helvetica fontsize=11 shape=box style="filled,rounded"]
+		}
+		{
+			rank=same
+			"root.worker[0].proc"
+			"root.worker[1].proc"
+			"root.worker[2].proc"
+		}
+	}
+	"root.splitter":e -> "root.worker[0].proc":w [label="chunk→data"]
+	"root.splitter":e -> "root.worker[1].proc":w [label="chunk→data"]
+	"root.splitter":e -> "root.worker[2].proc":w [label="chunk→data"]
+	"root.worker[0].proc":e -> "root.merger":w [label="result→result"]
+	"root.worker[1].proc":e -> "root.merger":w [label="result→result"]
+	"root.worker[2].proc":e -> "root.merger":w [label="result→result"]
+	SOURCE:e -> "root.splitter":w [label="input→data"]
+	"root.merger":e -> SINK:w [label="out→output"]
+}

@@ -1,0 +1,26 @@
+{
+  "children": {
+    "ingest": {},
+    "branch_a": {
+      "children": {
+        "transform": {},
+        "filter":    {}
+      },
+      "dag": [
+        ["branch_a->inputs->in",      "transform->inputs->data"],
+        ["transform->outputs->out",   "filter->inputs->data"],
+        ["filter->outputs->out",      "branch_a->outputs->out"]
+      ]
+    },
+    "branch_b": {},
+    "join":     {}
+  },
+  "dag": [
+    ["root->inputs->input",       "ingest->inputs->data"],
+    ["ingest->outputs->out",      "branch_a->inputs->in"],
+    ["ingest->outputs->out",      "branch_b->inputs->in"],
+    ["branch_a->outputs->out",    "join->inputs->left"],
+    ["branch_b->outputs->out",    "join->inputs->right"],
+    ["join->outputs->result",     "root->outputs->output"]
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "children": {
+    "first":  {},
+    "second": {}
+  },
+  "dag": [
+    ["root->inputs->input",  "first->inputs->x"],
+    ["first->outputs->y",    "second->inputs->x"],
+    ["second->outputs->y",   "root->outputs->output"]
+  ]
+}

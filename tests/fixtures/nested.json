@@ -1,0 +1,45 @@
+{
+  "children": {
+    "input": {},
+    "pipeline": {
+      "children": {
+        "stage1": {
+          "children": {
+            "parse":     {},
+            "normalize": {}
+          },
+          "dag": [
+            ["stage1->inputs->raw",       "parse->inputs->raw"],
+            ["parse->outputs->tokens",    "normalize->inputs->tokens"],
+            ["normalize->outputs->clean", "stage1->outputs->clean"]
+          ]
+        },
+        "stage2": {
+          "children": {
+            "enrich":   {},
+            "classify": {}
+          },
+          "dag": [
+            ["stage2->inputs->clean",     "enrich->inputs->data"],
+            ["enrich->outputs->enriched", "classify->inputs->data"],
+            ["classify->outputs->labels", "stage2->outputs->labels"]
+          ]
+        },
+        "stage3": {}
+      },
+      "dag": [
+        ["pipeline->inputs->raw",    "stage1->inputs->raw"],
+        ["stage1->outputs->clean",   "stage2->inputs->clean"],
+        ["stage2->outputs->labels",  "stage3->inputs->labels"],
+        ["stage3->outputs->report",  "pipeline->outputs->report"]
+      ]
+    },
+    "output": {}
+  },
+  "dag": [
+    ["root->inputs->source",      "input->inputs->src"],
+    ["input->outputs->raw",       "pipeline->inputs->raw"],
+    ["pipeline->outputs->report", "output->inputs->report"],
+    ["output->outputs->done",     "root->outputs->done"]
+  ]
+}
