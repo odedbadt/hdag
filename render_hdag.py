@@ -237,11 +237,12 @@ def spread(ports, candidates):
 
 def build_compass_maps(nodes, edges, in_compass, out_compass):
     """
-    For every node return {port_name: compass_point}.
+    For every node return {'in': {port: compass}, 'out': {port: compass}}.
     Ports are inferred from edge usage. Compass sides are caller-supplied so
-    they can be matched to the chosen rankdir.
+    they can be matched to the chosen rankdir. The two directions are kept in
+    separate sub-dicts so a node may legitimately use the same port name on
+    both its input and output sides without one clobbering the other.
     """
-    # Collect ordered, deduplicated port lists from edge usage
     in_ports  = {nid: list(dict.fromkeys(dp for _, _, did, dp in edges if did == nid))
                  for nid in nodes}
     out_ports = {nid: list(dict.fromkeys(sp for sid, sp, _, _ in edges if sid == nid))
@@ -250,13 +251,13 @@ def build_compass_maps(nodes, edges, in_compass, out_compass):
     compass = {}
     for node_id in nodes:
         if node_id == 'SOURCE':
-            compass['SOURCE'] = spread(out_ports['SOURCE'], out_compass)
+            compass['SOURCE'] = {'out': spread(out_ports['SOURCE'], out_compass)}
         elif node_id == 'SINK':
-            compass['SINK'] = spread(in_ports['SINK'], in_compass)
+            compass['SINK'] = {'in': spread(in_ports['SINK'], in_compass)}
         else:
             compass[node_id] = {
-                **spread(in_ports[node_id],  in_compass),
-                **spread(out_ports[node_id], out_compass),
+                'in':  spread(in_ports[node_id],  in_compass),
+                'out': spread(out_ports[node_id], out_compass),
             }
 
     return compass
@@ -336,8 +337,8 @@ def build_dot(nodes, edges, cluster, rankdir="LR"):
         if key in seen:
             continue
         seen.add(key)
-        src_cp = compass[src_id].get(src_port, default_src_cp)
-        dst_cp = compass[dst_id].get(dst_port, default_dst_cp)
+        src_cp = compass[src_id].get('out', {}).get(src_port, default_src_cp)
+        dst_cp = compass[dst_id].get('in',  {}).get(dst_port, default_dst_cp)
         dot.edge(f"{src_id}:{src_cp}", f"{dst_id}:{dst_cp}",
                  label=f"{src_port}→{dst_port}")
 

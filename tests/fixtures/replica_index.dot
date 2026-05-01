@@ -35,6 +35,6 @@ digraph GlobalDAG {
 	"root.worker[1].proc":e -> "root.merger":nw [label="done→result"]
 	"root.worker[2].proc":e -> "root.merger":nw [label="done→result"]
 	"root.priority_log":e -> "root.merger":sw [label="ok→ack"]
-	SOURCE:e -> "root.splitter":e [label="in→job"]
+	SOURCE:e -> "root.splitter":w [label="in→job"]
 	"root.merger":e -> SINK:w [label="out→out"]
 }
